@@ -5,7 +5,7 @@ RUN \
   apt-get update && \
   apt install -y curl git unzip maven openjdk-11-jre-headless
 
-WORKDIR /app
+WORKDIR /tmp/build
 
 # kafka dist needed for Kafka Connect
 RUN \
@@ -45,6 +45,7 @@ RUN \
   curl -O https://packages.confluent.io/maven/io/confluent/kafka-schema-serializer/6.0.0/kafka-schema-serializer-6.0.0.jar && \
   curl -O https://packages.confluent.io/maven/io/confluent/kafka-connect-avro-data/6.0.0/kafka-connect-avro-data-6.0.0.jar && \
   curl -O https://packages.confluent.io/maven/io/confluent/kafka-schema-registry-client/6.0.0/kafka-schema-registry-client-6.0.0.jar
+
 COPY third-party-dependencies/* jars/
 
 # get the weather connector source and build it
@@ -72,8 +73,16 @@ RUN \
   apt remove -y curl git unzip maven && \
   rm -rf /tmp/gradle.zip /tmp/gradlebin
 
+RUN useradd -g 0 1001
+
+WORKDIR /app
+
 # create folder for truststore needed for the Kafka cluster being connected to
 RUN mkdir cas
+
+RUN mkdir jars && cp /tmp/build/jars/* jars
+
+RUN cp -r /tmp/build/kafka_2.13-2.8.0 kafka_2.13-2.8.0
 
 # Kafka Connect config for the Kafka cluster being connected to
 COPY connect-configs connect-configs
@@ -81,6 +90,10 @@ COPY connect-configs connect-configs
 # config for the Kafka Connect connectors being run
 COPY connector-configs connector-configs
 COPY flightlandings.avsc .
+
+RUN rm -rf /tmp/build
+RUN chown -R 1001:0 /app && chmod -R 775 /app
+USER 1001
 
 # start command
 COPY run.sh .
